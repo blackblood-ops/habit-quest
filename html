@@ -1,0 +1,382 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Habit Quest</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap">
+<style>
+/* Layout: sticky top bar, two views (Tracker grid / Dashboard). Navy + electric blue taken from the habit-sheet ad; gold is reserved for achievements. */
+:root{
+  --bg:#f3f5fa; --surface:#ffffff; --ink:#0e1730; --muted:#5b6683; --line:#dde2ee; --cell:#eef1f8;
+  --accent:#3550f5; --accent-ink:#ffffff; --good:#16a34a; --gold:#d99a00;
+  --bronze:#b8743a; --silver:#8c97ad;
+  --head:'Space Grotesk',system-ui,sans-serif; --body:'Inter',system-ui,sans-serif;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0b1226; --surface:#131c36; --ink:#eaf0ff; --muted:#93a0c4; --line:#25315a; --cell:#1b2646;
+  --accent:#7088ff; --accent-ink:#0b1226; --good:#3ddc84; --gold:#f2b705; --bronze:#d08b50; --silver:#a9b3c9; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0b1226; --surface:#131c36; --ink:#eaf0ff; --muted:#93a0c4; --line:#25315a; --cell:#1b2646;
+  --accent:#7088ff; --accent-ink:#0b1226; --good:#3ddc84; --gold:#f2b705; --bronze:#d08b50; --silver:#a9b3c9; color-scheme:dark}
+
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:14px/1.5 var(--body);padding:0 max(16px,env(safe-area-inset-left,0px)) 48px max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+h1,h2,h3{font-family:var(--head);margin:0;text-wrap:balance}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.wrap{max-width:1180px;margin:0 auto}
+.num{font-variant-numeric:tabular-nums}
+
+/* top bar */
+.top{display:flex;flex-wrap:wrap;gap:12px 16px;align-items:center;justify-content:space-between;padding:20px 0 14px}
+.brand{display:flex;align-items:center;gap:10px}
+.logo{width:34px;height:34px;border-radius:9px;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;font:700 16px var(--head)}
+.brand h1{font-size:22px;letter-spacing:-.01em}
+.tools{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:7px 12px;font-weight:500}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn.danger{color:#d13b3b}
+.sel{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:7px 10px}
+.pill{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--surface);border-radius:99px;padding:5px 11px;font-size:12px;color:var(--muted)}
+.pill i{width:8px;height:8px;border-radius:50%;background:var(--silver)}
+.pill.ok i{background:var(--good)} .pill.busy i{background:var(--gold)} .pill.err i{background:#d13b3b}
+
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:18px}
+.tab{background:none;border:0;border-bottom:2px solid transparent;padding:10px 14px;font:600 14px var(--head);color:var(--muted)}
+.tab[aria-selected="true"]{color:var(--ink);border-color:var(--accent)}
+
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px}
+.card h2{font-size:16px;margin-bottom:12px}
+.stack{display:grid;gap:16px}
+.muted{color:var(--muted)}
+
+/* tracker grid */
+.scroll{overflow-x:auto;border-radius:8px}
+table.grid{border-collapse:separate;border-spacing:0;min-width:100%}
+.grid th,.grid td{padding:0;text-align:center;border-bottom:1px solid var(--line)}
+.grid thead th{background:var(--ink);color:var(--bg);font:600 11px var(--head);height:24px;border-left:1px solid var(--surface)}
+.grid thead tr:first-child th{font-size:12px;letter-spacing:.04em}
+.grid .corner,.grid .hname{position:sticky;left:0;z-index:2;text-align:left;padding:0 12px;min-width:140px;max-width:170px}
+.grid .corner{background:var(--ink);color:var(--bg);font:600 14px var(--head)}
+.grid .hname{background:var(--surface);font-weight:500;border-right:1px solid var(--line);height:38px}
+.grid td{min-width:40px;width:40px;height:38px}
+.grid td.wk{border-left:2px solid var(--line)}
+.grid td.today,.grid thead th.today{background:color-mix(in srgb,var(--accent) 12%,transparent)}
+.grid thead th.today{background:var(--accent);color:var(--accent-ink)}
+.chk{width:22px;height:22px;border-radius:6px;border:1.5px solid var(--muted);background:transparent;padding:0;display:inline-grid;place-items:center}
+.chk[aria-pressed="true"]{background:var(--accent);border-color:var(--accent)}
+.chk[aria-pressed="true"]::after{content:"";width:5px;height:10px;border:solid var(--accent-ink);border-width:0 2px 2px 0;transform:rotate(45deg) translate(-1px,-1px)}
+.grid .sub td,.grid .sub th{background:var(--cell)}
+.grid .sub .hname{background:var(--cell)}
+.mini{width:36px;height:26px;border:1px solid var(--line);border-radius:6px;background:var(--surface);text-align:center;padding:0}
+.mini.wide{width:38px}
+.pctrow td{font-size:11px;color:var(--muted)}
+
+.chart{width:100%;height:150px;display:block}
+.chart text{fill:var(--muted);font:10px var(--body)}
+.chart .bar{fill:var(--accent)} .chart .bar.full{fill:var(--gold)}
+.chart .gl{stroke:var(--line);stroke-width:1}
+
+.habits-edit{display:grid;gap:8px}
+.hrow{display:flex;gap:8px}
+.hrow input{flex:1;min-width:0;border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:8px 10px}
+
+/* dashboard */
+.hero{display:grid;grid-template-columns:auto 1fr;gap:18px;align-items:center}
+.lvl{width:92px;height:92px;border-radius:50%;background:conic-gradient(var(--gold) var(--deg),var(--cell) 0);display:grid;place-items:center}
+.lvl div{width:76px;height:76px;border-radius:50%;background:var(--surface);display:grid;place-items:center;text-align:center;line-height:1}
+.lvl b{font:700 28px var(--head)} .lvl small{font-size:10px;letter-spacing:.1em;color:var(--muted)}
+.hero h2{font-size:24px;margin:0}
+.xpbar{height:10px;border-radius:99px;background:var(--cell);overflow:hidden;margin:10px 0 6px}
+.xpbar span{display:block;height:100%;background:var(--accent);border-radius:99px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px}
+.stat{border:1px solid var(--line);border-radius:10px;padding:12px}
+.stat b{display:block;font:700 24px var(--head)}
+.stat span{font-size:12px;color:var(--muted)}
+.weeks{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:12px}
+.wk-card{border:1px solid var(--line);border-radius:12px;padding:14px;display:grid;gap:8px;background:var(--surface)}
+.wk-card.now{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.wk-card.locked{opacity:.55}
+.wk-top{display:flex;justify-content:space-between;align-items:baseline}
+.wk-top b{font:600 15px var(--head)}
+.ring{width:84px;height:84px;margin:2px auto}
+.ring circle{fill:none;stroke-width:9}
+.ring .bg{stroke:var(--cell)} .ring .fg{stroke:var(--accent);stroke-linecap:round;transform:rotate(-90deg);transform-origin:50% 50%}
+.ring text{fill:var(--ink);font:700 18px var(--head);text-anchor:middle;dominant-baseline:central}
+.badge{justify-self:center;border-radius:99px;padding:3px 11px;font:600 12px var(--head);border:1.5px solid currentColor}
+.b-bronze{color:var(--bronze)} .b-silver{color:var(--silver)} .b-gold{color:var(--gold)}
+.b-perfect{color:var(--accent-ink);background:var(--accent);border-color:var(--accent)}
+.b-none{color:var(--muted)}
+.hb{display:grid;grid-template-columns:minmax(90px,170px) 1fr 44px;gap:10px;align-items:center;margin:8px 0}
+.hb .bar{height:8px;border-radius:99px;background:var(--cell);overflow:hidden}
+.hb .bar span{display:block;height:100%;background:var(--accent)}
+.road{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
+.step{border:1px solid var(--line);border-radius:10px;padding:10px;display:flex;justify-content:space-between;gap:8px}
+.step.done{border-color:var(--gold)} .step.cur{background:var(--cell);border-color:var(--accent)}
+.step:not(.done):not(.cur){color:var(--muted)}
+.step b{font-family:var(--head)}
+
+/* dialog */
+dialog{border:1px solid var(--line);border-radius:14px;background:var(--surface);color:var(--ink);max-width:560px;width:calc(100% - 32px);padding:20px}
+dialog::backdrop{background:rgba(5,10,25,.55)}
+dialog h2{margin-bottom:8px}
+dialog ol{padding-left:18px;margin:8px 0 14px;color:var(--muted)}
+dialog input[type=url]{width:100%;border:1px solid var(--line);background:var(--bg);border-radius:8px;padding:9px 10px;margin:6px 0 12px}
+.row{display:flex;flex-wrap:wrap;gap:8px}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:9px 16px;border-radius:99px;font-size:13px;z-index:50}
+@media (max-width:520px){.hero{grid-template-columns:1fr;justify-items:start}}
+@media (prefers-reduced-motion:no-preference){.xpbar span,.hb .bar span{transition:width .5s}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="brand"><div class="logo">HQ</div><h1>Habit Quest</h1></div>
+    <div class="tools">
+      <span class="pill" id="sync"><i></i><span id="syncText">Local only</span></span>
+      <select class="sel" id="month" aria-label="Month"></select>
+      <select class="sel" id="year" aria-label="Year"></select>
+      <button class="btn" id="settingsBtn">Google Sheet</button>
+    </div>
+  </header>
+  <div class="tabs" role="tablist">
+    <button class="tab" role="tab" id="tab-tracker" aria-selected="true">Tracker</button>
+    <button class="tab" role="tab" id="tab-dash" aria-selected="false">Weekly dashboard</button>
+  </div>
+  <main id="app"></main>
+</div>
+
+<dialog id="dlg">
+  <h2>Connect Google Sheets</h2>
+  <p class="muted" style="margin:0">Your habits and check-ins are stored in a Google Sheet you own. Edit habits there or here and they stay in sync.</p>
+  <ol>
+    <li>Create a new Google Sheet, then open Extensions &rarr; Apps Script.</li>
+    <li>Paste the contents of <b>Code.gs</b>, save, then Deploy &rarr; New deployment &rarr; Web app (Execute as: Me, Access: Anyone).</li>
+    <li>Copy the Web app URL and paste it below.</li>
+  </ol>
+  <label for="url"><b>Web app URL</b></label>
+  <input type="url" id="url" placeholder="https://script.google.com/macros/s/.../exec">
+  <div class="row">
+    <button class="btn primary" id="saveUrl">Save and sync</button>
+    <button class="btn" id="pullBtn">Pull from Sheet</button>
+    <button class="btn" id="pushBtn">Push to Sheet</button>
+    <button class="btn" id="closeDlg">Close</button>
+  </div>
+  <p class="muted" style="font-size:12px;margin:12px 0 0">Pull replaces what is on this device with the Sheet. Push replaces the Sheet with this device. Changes you make here push automatically.</p>
+</dialog>
+
+<script>
+(function(){
+const $=s=>document.querySelector(s);
+const pad=n=>String(n).padStart(2,'0');
+const key=(y,m,d)=>`${y}-${pad(m+1)}-${pad(d)}`;
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const DOW=['S','M','T','W','T','F','S'];
+const MONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'];
+const LEVELS=[[0,'Rookie'],[100,'Explorer'],[250,'Challenger'],[450,'Warrior'],[700,'Champion'],[1000,'Master'],[1400,'Legend'],[1900,'Mythic'],[2500,'Titan'],[3200,'Immortal']];
+const XP_CHECK=10, XP_PERFECT=20;
+const STORE='habitquest.v1';
+
+const now=new Date();
+const today=key(now.getFullYear(),now.getMonth(),now.getDate());
+let Y=now.getFullYear(), M=now.getMonth(), view='tracker';
+
+function fresh(){return{habits:['Wake up at 05:00','Gym','Reading / Learning','Day Planning'].map((n,i)=>({id:'h'+(i+1),name:n})),checks:{},mood:{},sleep:{},url:'',dirty:false}}
+let S=(function(){try{const r=JSON.parse(localStorage.getItem(STORE));if(r&&r.habits)return Object.assign(fresh(),r)}catch(e){}return fresh()})();
+function save(){try{localStorage.setItem(STORE,JSON.stringify(S))}catch(e){}}
+function toast(t){const e=document.createElement('div');e.className='toast';e.textContent=t;document.body.appendChild(e);setTimeout(()=>e.remove(),2200)}
+
+/* ---------- derived data ---------- */
+const ids=()=>new Set(S.habits.map(h=>h.id));
+function doneOn(date){const v=ids();return(S.checks[date]||[]).filter(i=>v.has(i))}
+function dayPct(date){return S.habits.length?doneOn(date).length/S.habits.length:0}
+function dayXp(date){const n=doneOn(date).length;return n*XP_CHECK+(S.habits.length&&n===S.habits.length?XP_PERFECT:0)}
+function totalXp(){return Object.keys(S.checks).reduce((a,d)=>a+dayXp(d),0)}
+function levelInfo(xp){
+  let i=0;while(i+1<LEVELS.length&&xp>=LEVELS[i+1][0])i++;
+  const over=i===LEVELS.length-1;
+  const lo=LEVELS[i][0], hi=over?lo+800*(1+Math.floor((xp-lo)/800)):LEVELS[i+1][0];
+  const extra=over?Math.floor((xp-lo)/800):0;
+  return{n:i+1+extra,name:LEVELS[i][1]+(extra?' +'+extra:''),lo:over?lo+800*extra:lo,hi:over?lo+800*(extra+1):hi,next:over?'Level '+(i+2+extra):LEVELS[i+1][1]}
+}
+function weeksOf(y,m){
+  const n=new Date(y,m+1,0).getDate(),w=[];let cur=null;
+  for(let d=1;d<=n;d++){const dow=new Date(y,m,d).getDay();if(!cur||dow===0){cur={n:w.length+1,days:[]};w.push(cur)}cur.days.push(d)}
+  return w;
+}
+function streaks(){
+  const perfect=d=>S.habits.length&&doneOn(d).length===S.habits.length;
+  const dates=Object.keys(S.checks).filter(perfect).sort();
+  let best=0,run=0,prev=null;
+  for(const d of dates){const t=new Date(d+'T00:00:00');run=prev&&(t-prev)===864e5?run+1:1;prev=t;best=Math.max(best,run)}
+  let cur=0,t=new Date(now.getFullYear(),now.getMonth(),now.getDate());
+  if(!perfect(key(t.getFullYear(),t.getMonth(),t.getDate())))t.setDate(t.getDate()-1);
+  while(perfect(key(t.getFullYear(),t.getMonth(),t.getDate()))){cur++;t.setDate(t.getDate()-1)}
+  return{cur,best};
+}
+function weekStats(y,m,wk){
+  let done=0,poss=0,xp=0;
+  for(const d of wk.days){const k=key(y,m,d);done+=doneOn(k).length;poss+=S.habits.length;xp+=dayXp(k)}
+  const pct=poss?Math.round(done/poss*100):0;
+  const last=key(y,m,wk.days[wk.days.length-1]), first=key(y,m,wk.days[0]);
+  const state=first>today?'locked':(last>=today?'now':'past');
+  let badge=['none','No badge yet'];
+  if(pct===100&&poss)badge=['perfect','Perfect week'];else if(pct>=90)badge=['gold','Gold'];else if(pct>=75)badge=['silver','Silver'];else if(pct>=50)badge=['bronze','Bronze'];
+  return{done,poss,pct,xp,state,badge};
+}
+
+/* ---------- rendering ---------- */
+function render(){
+  $('#tab-tracker').setAttribute('aria-selected',view==='tracker');
+  $('#tab-dash').setAttribute('aria-selected',view==='dash');
+  $('#app').innerHTML=view==='tracker'?trackerHtml():dashHtml();
+}
+
+function trackerHtml(){
+  const n=new Date(Y,M+1,0).getDate(), wks=weeksOf(Y,M);
+  const wkStart=new Set(wks.map(w=>w.days[0]));
+  const cls=(d,extra='')=>[key(Y,M,d)===today?'today':'',wkStart.has(d)&&d>1?'wk':'',extra].join(' ');
+  let h='<div class="stack"><section class="card"><h2>My habits &middot; '+MONTHS[M]+' '+Y+'</h2><div class="scroll"><table class="grid"><thead>';
+  h+='<tr><th class="corner" rowspan="3">My Habits</th>'+wks.map(w=>`<th colspan="${w.days.length}">WEEK ${w.n}</th>`).join('')+'</tr>';
+  h+='<tr>'+Array.from({length:n},(_,i)=>`<th class="${cls(i+1)}">${DOW[new Date(Y,M,i+1).getDay()]}</th>`).join('')+'</tr>';
+  h+='<tr>'+Array.from({length:n},(_,i)=>`<th class="${cls(i+1)} num">${i+1}</th>`).join('')+'</tr></thead><tbody>';
+  for(const hb of S.habits){
+    h+=`<tr><th class="hname" scope="row">${esc(hb.name)}</th>`;
+    for(let d=1;d<=n;d++){const k=key(Y,M,d),on=(S.checks[k]||[]).includes(hb.id);
+      h+=`<td class="${cls(d)}"><button class="chk" data-h="${esc(hb.id)}" data-k="${k}" aria-pressed="${on}" aria-label="${esc(hb.name)}, ${k}"></button></td>`}
+    h+='</tr>';
+  }
+  if(!S.habits.length)h+=`<tr><td colspan="${n+1}" style="padding:18px" class="muted">No habits yet. Add one below.</td></tr>`;
+  h+=`<tr class="sub pctrow"><th class="hname" scope="row">Daily %</th>`+Array.from({length:n},(_,i)=>`<td class="${cls(i+1)} num">${Math.round(dayPct(key(Y,M,i+1))*100)}</td>`).join('')+'</tr>';
+  h+=`<tr class="sub"><th class="hname" scope="row">Mood (1-5)</th>`+Array.from({length:n},(_,i)=>{const k=key(Y,M,i+1);return`<td class="${cls(i+1)}"><input class="mini num" type="number" min="1" max="5" step="1" data-mood="${k}" value="${S.mood[k]??''}" aria-label="Mood ${k}"></td>`}).join('')+'</tr>';
+  h+=`<tr class="sub"><th class="hname" scope="row">Sleep (hours)</th>`+Array.from({length:n},(_,i)=>{const k=key(Y,M,i+1);return`<td class="${cls(i+1)}"><input class="mini wide num" type="number" min="0" max="24" step="0.5" data-sleep="${k}" value="${S.sleep[k]??''}" aria-label="Sleep ${k}"></td>`}).join('')+'</tr>';
+  h+='</tbody></table></div></section>';
+  h+='<section class="card"><h2>Daily progress</h2>'+chartSvg(n)+'</section>';
+  h+='<section class="card"><h2>Edit habits</h2><div class="habits-edit">'+S.habits.map(x=>`<div class="hrow"><input data-rename="${esc(x.id)}" value="${esc(x.name)}" aria-label="Habit name"><button class="btn danger" data-del="${esc(x.id)}">Delete</button></div>`).join('')
+    +'<div class="hrow"><input id="newHabit" placeholder="New habit, e.g. Drink 3L water" aria-label="New habit"><button class="btn primary" id="addHabit">Add habit</button></div></div></section></div>';
+  return h;
+}
+
+function chartSvg(n){
+  const bw=22,H=110,top=8,base=H-18,w=n*bw+28;
+  let s=`<div class="scroll"><svg class="chart" style="min-width:${w}px" viewBox="0 0 ${w} ${H}" role="img" aria-label="Daily completion percentage">`;
+  for(const p of [0,50,100]){const y=base-(base-top)*p/100;s+=`<line class="gl" x1="26" x2="${w}" y1="${y}" y2="${y}"/><text x="22" y="${y+3}" text-anchor="end">${p}</text>`}
+  for(let d=1;d<=n;d++){
+    const p=dayPct(key(Y,M,d)),bh=(base-top)*p,x=28+(d-1)*bw;
+    s+=`<rect class="bar${p===1?' full':''}" x="${x+3}" y="${base-bh}" width="${bw-6}" height="${bh}" rx="2"/><text x="${x+bw/2}" y="${H-5}" text-anchor="middle">${d}</text>`;
+  }
+  return s+'</svg></div>';
+}
+
+function dashHtml(){
+  const xp=totalXp(), L=levelInfo(xp), st=streaks();
+  const deg=Math.round((xp-L.lo)/(L.hi-L.lo)*360);
+  const wks=weeksOf(Y,M);
+  const n=new Date(Y,M+1,0).getDate();
+  let monthDone=0,sleepSum=0,sleepN=0,moodSum=0,moodN=0;
+  for(let d=1;d<=n;d++){const k=key(Y,M,d);monthDone+=doneOn(k).length;
+    if(S.sleep[k]!==undefined&&S.sleep[k]!==''){sleepSum+=+S.sleep[k];sleepN++}
+    if(S.mood[k]!==undefined&&S.mood[k]!==''){moodSum+=+S.mood[k];moodN++}}
+  const monthPct=S.habits.length?Math.round(monthDone/(S.habits.length*n)*100):0;
+  let h='<div class="stack">';
+  h+=`<section class="card hero"><div class="lvl" style="--deg:${deg}deg"><div><span><small>LEVEL</small><br><b>${L.n}</b></span></div></div>
+  <div><h2>${esc(L.name)}</h2><div class="xpbar"><span style="width:${Math.round((xp-L.lo)/(L.hi-L.lo)*100)}%"></span></div>
+  <div class="muted num">${xp} XP &middot; ${L.hi-xp} XP to ${esc(L.next)}</div>
+  <div class="muted" style="font-size:12px">${XP_CHECK} XP per habit, +${XP_PERFECT} XP bonus for a perfect day.</div></div></section>`;
+  h+=`<section class="stats"><div class="stat"><b class="num">${st.cur}</b><span>Perfect-day streak</span></div><div class="stat"><b class="num">${st.best}</b><span>Best streak</span></div>
+  <div class="stat"><b class="num">${monthPct}%</b><span>${MONTHS[M]} completion</span></div>
+  <div class="stat"><b class="num">${sleepN?(sleepSum/sleepN).toFixed(1)+' h':'-'}</b><span>Average sleep</span></div>
+  <div class="stat"><b class="num">${moodN?(moodSum/moodN).toFixed(1)+' / 5':'-'}</b><span>Average mood</span></div></section>`;
+  h+='<section class="card"><h2>Weekly achievements &middot; '+MONTHS[M]+' '+Y+'</h2><div class="weeks">';
+  for(const w of wks){
+    const s=weekStats(Y,M,w), C=2*Math.PI*36, rng=`${MONTHS[M].slice(0,3)} ${w.days[0]}${w.days.length>1?'-'+w.days[w.days.length-1]:''}`;
+    h+=`<div class="wk-card ${s.state}"><div class="wk-top"><b>Week ${w.n}</b><span class="muted">${rng}</span></div>
+    <svg class="ring" viewBox="0 0 84 84"><circle class="bg" cx="42" cy="42" r="36"/><circle class="fg" cx="42" cy="42" r="36" stroke-dasharray="${C*s.pct/100} ${C}"/><text x="42" y="43">${s.pct}%</text></svg>
+    <span class="badge b-${s.state==='locked'?'none':s.badge[0]}">${s.state==='locked'?'Locked':s.badge[1]}</span>
+    <div class="muted num" style="text-align:center;font-size:12px">${s.done}/${s.poss} habits &middot; ${s.xp} XP</div></div>`;
+  }
+  h+='</div><p class="muted" style="font-size:12px;margin:12px 0 0">Badges: Bronze 50%, Silver 75%, Gold 90%, Perfect 100% of the week\'s habits.</p></section>';
+  h+='<section class="card"><h2>Habit scores this month</h2>';
+  for(const x of S.habits){let c=0;for(let d=1;d<=n;d++)if((S.checks[key(Y,M,d)]||[]).includes(x.id))c++;const p=Math.round(c/n*100);
+    h+=`<div class="hb"><span>${esc(x.name)}</span><div class="bar"><span style="width:${p}%"></span></div><span class="num muted">${p}%</span></div>`}
+  if(!S.habits.length)h+='<p class="muted">Add habits on the Tracker tab.</p>';
+  h+='</section><section class="card"><h2>Level roadmap</h2><div class="road">';
+  LEVELS.forEach((l,i)=>{const c=i+1===L.n?'cur':(i+1<L.n?'done':'');h+=`<div class="step ${c}"><b>Lv ${i+1} ${l[1]}</b><span class="num">${l[0]}</span></div>`});
+  return h+'</div></section></div>';
+}
+
+/* ---------- events ---------- */
+function changed(){S.dirty=true;save();schedulePush()}
+$('#app').addEventListener('click',e=>{
+  const c=e.target.closest('.chk');
+  if(c){const k=c.dataset.k,id=c.dataset.h,a=S.checks[k]||(S.checks[k]=[]),i=a.indexOf(id);
+    if(i<0)a.push(id);else a.splice(i,1);if(!a.length)delete S.checks[k];changed();render();return}
+  const d=e.target.closest('[data-del]');
+  if(d){S.habits=S.habits.filter(x=>x.id!==d.dataset.del);changed();render();return}
+  if(e.target.id==='addHabit')addHabit();
+});
+$('#app').addEventListener('keydown',e=>{if(e.target.id==='newHabit'&&e.key==='Enter')addHabit()});
+function addHabit(){const i=$('#newHabit'),v=i.value.trim();if(!v)return;S.habits.push({id:'h'+Date.now().toString(36),name:v});changed();render()}
+$('#app').addEventListener('change',e=>{
+  const t=e.target;
+  if(t.dataset.rename){const h=S.habits.find(x=>x.id===t.dataset.rename);if(h&&t.value.trim()){h.name=t.value.trim();changed();render()}}
+  else if(t.dataset.mood){const v=t.value===''?'':Math.min(5,Math.max(1,+t.value));if(v==='')delete S.mood[t.dataset.mood];else S.mood[t.dataset.mood]=v;changed();render()}
+  else if(t.dataset.sleep){const v=t.value===''?'':Math.min(24,Math.max(0,+t.value));if(v==='')delete S.sleep[t.dataset.sleep];else S.sleep[t.dataset.sleep]=v;changed();render()}
+});
+$('#tab-tracker').onclick=()=>{view='tracker';render()};
+$('#tab-dash').onclick=()=>{view='dash';render()};
+const ms=$('#month'),ys=$('#year');
+ms.innerHTML=MONTHS.map((m,i)=>`<option value="${i}">${m}</option>`).join('');
+for(let y=now.getFullYear()-2;y<=now.getFullYear()+2;y++)ys.add(new Option(y,y));
+ms.value=M;ys.value=Y;
+ms.onchange=()=>{M=+ms.value;render()};ys.onchange=()=>{Y=+ys.value;render()};
+
+/* ---------- Google Sheets sync (Apps Script web app) ---------- */
+function setSync(kind,text){const p=$('#sync');p.className='pill '+kind;$('#syncText').textContent=text}
+function payload(){
+  const log=[],dates=new Set([...Object.keys(S.mood),...Object.keys(S.sleep)]);
+  for(const d of Object.keys(S.checks).sort())for(const id of doneOn(d))log.push({date:d,habitId:id,done:1});
+  return{habits:S.habits,log,wellness:[...dates].sort().map(d=>({date:d,mood:S.mood[d]??'',sleep:S.sleep[d]??''}))};
+}
+function applyRemote(r){
+  if(!r||!Array.isArray(r.habits))throw new Error('bad data');
+  S.habits=r.habits.filter(h=>h.name).map(h=>({id:String(h.id),name:String(h.name)}));
+  S.checks={};for(const x of r.log||[]){if(String(x.done)==='1'||x.done===true||x.done===1){(S.checks[x.date]=S.checks[x.date]||[]).push(String(x.habitId))}}
+  S.mood={};S.sleep={};for(const x of r.wellness||[]){if(x.mood!=='')S.mood[x.date]=+x.mood;if(x.sleep!=='')S.sleep[x.date]=+x.sleep}
+  S.dirty=false;save();render();
+}
+async function pull(){
+  if(!S.url)return setSync('','Local only');
+  setSync('busy','Syncing...');
+  try{const res=await fetch(S.url,{redirect:'follow'});applyRemote(await res.json());setSync('ok','Synced '+new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}))}
+  catch(e){setSync('err','Sync failed')}
+}
+async function push(){
+  if(!S.url)return;
+  setSync('busy','Syncing...');
+  try{const res=await fetch(S.url,{method:'POST',redirect:'follow',body:JSON.stringify(payload())});const j=await res.json();if(!j.ok)throw 0;
+    S.dirty=false;save();setSync('ok','Synced '+new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}))}
+  catch(e){setSync('err','Sync failed')}
+}
+let timer=null;
+function schedulePush(){if(!S.url)return;setSync('busy','Saving...');clearTimeout(timer);timer=setTimeout(push,1200)}
+
+const dlg=$('#dlg');
+$('#settingsBtn').onclick=()=>{$('#url').value=S.url||'';dlg.showModal()};
+$('#closeDlg').onclick=()=>dlg.close();
+$('#saveUrl').onclick=async()=>{S.url=$('#url').value.trim();save();dlg.close();if(S.url){await push();toast('Connected to Google Sheets')}else{setSync('','Local only')}};
+$('#pullBtn').onclick=async()=>{S.url=$('#url').value.trim()||S.url;save();await pull();toast('Pulled from Sheet')};
+$('#pushBtn').onclick=async()=>{S.url=$('#url').value.trim()||S.url;save();await push();toast('Pushed to Sheet')};
+
+render();
+if(S.url){S.dirty?push():pull()}
+})();
+</script>
+</body>
+</html>
